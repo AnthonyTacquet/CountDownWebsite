@@ -1,5 +1,8 @@
+import 'dart:typed_data';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:flutter/widgets.dart' as widgets;
 
 void main() {
   runApp(const MainApp());
@@ -12,57 +15,87 @@ class MainApp extends StatefulWidget {
   _MainAppState createState() => _MainAppState();
 }
 
-class _MainAppState extends State<MainApp> {
+class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
   Timer? _timer;
   bool timerStarted = false;
   late int _seconds;
   late String _buttonText = "Start";
-  late String _animationPath = "assets/idle.gif";
   final int _initialSeconds = 10; // Initial countdown time in seconds
   late TextEditingController _textFieldController;
   String _textFieldValue = "";
+  late AnimationController _animationController;
+  bool _isAnimating = false;
+  Widget _gifImage = Image.asset("assets/idle.gif"); // Initialize with idle.gif
 
   @override
   void initState() {
     super.initState();
     _seconds = _initialSeconds;
     _textFieldController = TextEditingController();
+
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1), // Set the duration of the GIF animation
+    );
+
+    _animationController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        _animationController.reset();
+        _isAnimating = false;
+      }
+    });
   }
 
   void startTimer() {
+    stopAnimation();
     if (_timer == null) {
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_seconds == 0) {
-        timer.cancel();
-        changeImage("assets/animation_once.gif");
-        timerStarted = false;
-        setState(() {
-          _buttonText = "Start";
-        });
-        _seconds = _initialSeconds;
-        _timer = null;
-      } else {
-        setState(() {
-          _seconds--;
-        });
-      }
-    });
-    timerStarted = true;
-    setState(() {
-      _buttonText = "Pause";
-    });
-  } else {
-    _timer!.cancel();
-    _timer = null;
-    setState(() {
-      _buttonText = "Resume";
-    });
+      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (_seconds == 0) {
+          timer.cancel();
+          changeImage("assets/animation_once.gif"); // Change the image
+          startAnimation(); // Start the animation
+          timerStarted = false;
+          setState(() {
+            _buttonText = "Start";
+          });
+          _seconds = _initialSeconds;
+          _timer = null;
+        } else {
+          setState(() {
+            _seconds--;
+          });
+        }
+      });
+      timerStarted = true;
+      setState(() {
+        _buttonText = "Pause";
+      });
+    } else {
+      _timer!.cancel();
+      _timer = null;
+      setState(() {
+        _buttonText = "Resume";
+      });
+    }
   }
+
+  void startAnimation() {
+    if (!_isAnimating) {
+      _animationController.forward();
+      _isAnimating = true;
+    }
+  }
+
+  void stopAnimation() {
+    if (_isAnimating) {
+      _animationController.stop();
+      _isAnimating = false;
+    }
   }
 
   void changeImage(String val) {
     setState(() {
-        _animationPath = val;
+      _gifImage = Image.asset(val); // Change the image
     });
   }
 
@@ -132,8 +165,15 @@ class _MainAppState extends State<MainApp> {
                                         shape: BoxShape.circle,
                                         color: Color.fromARGB(255, 229, 229, 229),
                                       ),
-                            child: Image.asset(_animationPath),
+                            child: Container(
+                              child: AnimatedBuilder(
+                                animation: _animationController,
+                                builder: (context, child) {
+                                  return _gifImage;
+                                },
+                              ),
                             ),
+                          ),
                         ),
                       ),
                       Expanded(
